@@ -1,0 +1,10 @@
+chrome_profile/
+__pycache__/
+*.pyc
+*.crdownload
+*.tmp
+*.zip
+profile_*.txt
+output/
+*.pptx
+.env

@@ -1,0 +1,67 @@
+name: NotebookLM Slide Generator
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'   # 30分ごとに実行
+  workflow_dispatch:          # 手動実行も可能
+
+jobs:
+  generate-slides:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15       # 安全策として15分で強制終了
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Setup Chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
+      - name: Install Xvfb
+        run: sudo apt-get install -y xvfb
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Restore Chrome profile
+        env:
+          CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
+        run: |
+          echo "${{ secrets.CHROME_PROFILE_ZIP }}" | base64 -d > profile.zip
+          openssl aes-256-cbc -d -pbkdf2 -in profile.zip -out profile_dec.zip -pass pass:$CHROME_PROFILE_KEY
+          unzip -q profile_dec.zip -d chrome_profile/
+          echo "CHROME_PROFILE_DIR=$(pwd)/chrome_profile" >> $GITHUB_ENV
+
+      - name: Run dispatcher
+        env:
+          GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
+          GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
+          CHROME_PROFILE_DIR: ${{ env.CHROME_PROFILE_DIR }}
+        run: |
+          xvfb-run python scripts/dispatcher.py
+
+      - name: Save updated Chrome profile
+        if: always()
+        env:
+          CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
+        run: |
+          if [ -d "chrome_profile" ]; then
+            zip -qr profile_updated.zip chrome_profile/
+            openssl aes-256-cbc -e -pbkdf2 -in profile_updated.zip -out profile_enc.zip -pass pass:$CHROME_PROFILE_KEY
+            echo "Profile saved ($(du -h profile_enc.zip | cut -f1))"
+          fi
+
+      - name: Upload updated profile as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-profile-${{ github.run_number }}
+          path: profile_enc.zip
+          retention-days: 7
+          if-no-files-found: ignore
