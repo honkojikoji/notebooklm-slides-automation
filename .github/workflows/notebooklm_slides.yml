@@ -9,6 +9,8 @@ jobs:
   generate-slides:
     runs-on: ubuntu-latest
     timeout-minutes: 15       # 安全策として15分で強制終了
+    permissions:
+      contents: write
 
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +51,7 @@ jobs:
 
           echo "Extracting..."
           mkdir -p chrome_profile
-          unzip -q profile_dec.zip -d chrome_profile/
+          python -m zipfile -e profile_dec.zip chrome_profile/
           echo "CHROME_PROFILE_DIR=$(pwd)/chrome_profile" >> $GITHUB_ENV
           echo "Profile files: $(find chrome_profile -type f | wc -l)"
 
