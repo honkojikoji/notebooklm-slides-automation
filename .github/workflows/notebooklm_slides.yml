@@ -76,7 +76,7 @@ jobs:
           fi
 
           echo "Packaging updated profile..."
-          zip -qr profile_updated.zip chrome_profile/
+          find chrome_profile/ -type f -print | zip -q profile_updated.zip -@
 
           echo "Encrypting..."
           openssl aes-256-cbc -e -pbkdf2 \
