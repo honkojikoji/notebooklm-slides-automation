@@ -40,7 +40,7 @@ jobs:
           echo "Downloading Chrome profile from release asset..."
           gh release download chrome-profile-storage \
             --repo ${{ github.repository }} \
-            --pattern "chrome_profile_minimal_enc.zip" \
+            --pattern "chrome_profile_full_enc.zip" \
             --output profile_enc.zip
 
           echo "Decrypting..."
@@ -81,13 +81,13 @@ jobs:
           echo "Encrypting..."
           openssl aes-256-cbc -e -pbkdf2 \
             -in profile_updated.zip \
-            -out chrome_profile_minimal_enc.zip \
+            -out chrome_profile_full_enc.zip \
             -pass pass:$CHROME_PROFILE_KEY
 
           echo "Uploading to release..."
           gh release upload chrome-profile-storage \
             --repo ${{ github.repository }} \
             --clobber \
-            chrome_profile_minimal_enc.zip
+            chrome_profile_full_enc.zip
 
           echo "Profile updated in release"
