@@ -79,8 +79,8 @@ def create_driver(
         options.add_experimental_option("prefs", prefs)
 
     version = chrome_version
-    if version is None and not is_linux:
-        version = 147  # Windows ローカル用デフォルト
+    if version is None:
+        version = 147  # 強制的に147を使用する (GitHub Actionsのstableと合わせる)
 
     log(f"Chrome 起動: profile={profile_dir}, headless={is_linux}, version_main={version}")
     driver = uc.Chrome(options=options, version_main=version)
