@@ -29,14 +29,45 @@ jobs:
       - name: Install Python dependencies
         run: pip install -r requirements.txt
 
-      - name: Restore Chrome profile
+      # ── Chrome プロファイルの取得（前回更新 Artifact → なければ初期 Artifact）──
+      - name: Find latest Chrome profile artifact
+        id: find-artifact
         env:
-          CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "${{ secrets.CHROME_PROFILE_ZIP }}" | base64 -d > profile.zip
-          openssl aes-256-cbc -d -pbkdf2 -in profile.zip -out profile_dec.zip -pass pass:$CHROME_PROFILE_KEY
-          unzip -q profile_dec.zip -d chrome_profile/
+          # 更新済みプロファイル (chrome-profile-updated-*) を優先取得
+          LATEST=$(gh api repos/${{ github.repository }}/actions/artifacts \
+            --jq '[.artifacts[] | select(.name | startswith("chrome-profile-updated-")) | select(.expired == false)] | sort_by(.created_at) | last | .id' \
+            2>/dev/null || echo "")
+
+          if [ -z "$LATEST" ] || [ "$LATEST" = "null" ]; then
+            # なければ初期プロファイルを使用
+            LATEST=$(gh api repos/${{ github.repository }}/actions/artifacts \
+              --jq '[.artifacts[] | select(.name == "chrome-profile-base") | select(.expired == false)] | last | .id' \
+              2>/dev/null || echo "")
+            echo "Using base profile (artifact: $LATEST)"
+          else
+            echo "Using updated profile (artifact: $LATEST)"
+          fi
+
+          echo "artifact_id=$LATEST" >> $GITHUB_OUTPUT
+
+      - name: Download Chrome profile artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ARTIFACT_ID="${{ steps.find-artifact.outputs.artifact_id }}"
+          if [ -z "$ARTIFACT_ID" ] || [ "$ARTIFACT_ID" = "null" ]; then
+            echo "ERROR: No Chrome profile artifact found."
+            echo "Please run the 'Upload Chrome Profile' workflow first."
+            exit 1
+          fi
+          mkdir -p chrome_profile
+          gh api repos/${{ github.repository }}/actions/artifacts/$ARTIFACT_ID/zip \
+            > artifact.zip
+          unzip -q artifact.zip -d chrome_profile/
           echo "CHROME_PROFILE_DIR=$(pwd)/chrome_profile" >> $GITHUB_ENV
+          echo "Profile restored: $(find chrome_profile -type f | wc -l) files"
 
       - name: Run dispatcher
         env:
@@ -46,22 +77,11 @@ jobs:
         run: |
           xvfb-run python scripts/dispatcher.py
 
-      - name: Save updated Chrome profile
-        if: always()
-        env:
-          CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
-        run: |
-          if [ -d "chrome_profile" ]; then
-            zip -qr profile_updated.zip chrome_profile/
-            openssl aes-256-cbc -e -pbkdf2 -in profile_updated.zip -out profile_enc.zip -pass pass:$CHROME_PROFILE_KEY
-            echo "Profile saved ($(du -h profile_enc.zip | cut -f1))"
-          fi
-
-      - name: Upload updated profile as artifact
+      - name: Upload updated Chrome profile as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: chrome-profile-${{ github.run_number }}
-          path: profile_enc.zip
+          name: chrome-profile-updated-${{ github.run_number }}
+          path: chrome_profile/
           retention-days: 7
           if-no-files-found: ignore
