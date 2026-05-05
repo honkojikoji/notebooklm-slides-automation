@@ -63,7 +63,8 @@ def create_driver(
     options.add_argument("--no-first-run")
     options.add_argument("--no-default-browser-check")
 
-    if is_linux:
+    is_ci = os.environ.get("CI") == "true"
+    if is_linux or is_ci:
         options.add_argument("--headless=new")
         options.add_argument("--no-sandbox")
         options.add_argument("--disable-dev-shm-usage")

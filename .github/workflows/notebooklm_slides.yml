@@ -7,7 +7,7 @@ on:
 
 jobs:
   generate-slides:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     timeout-minutes: 15       # 安全策として15分で強制終了
     permissions:
       contents: write
@@ -25,14 +25,13 @@ jobs:
         with:
           chrome-version: stable
 
-      - name: Install Xvfb
-        run: sudo apt-get install -y xvfb
-
       - name: Install Python dependencies
+        shell: bash
         run: pip install -r requirements.txt
 
       # ── Chrome プロファイルをReleaseアセットから取得 ──
       - name: Download Chrome profile from Release
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
@@ -56,16 +55,18 @@ jobs:
           echo "Profile files: $(find chrome_profile -type f | wc -l)"
 
       - name: Run dispatcher
+        shell: bash
         env:
           GOOGLE_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_DRIVE_FOLDER_ID: ${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}
           CHROME_PROFILE_DIR: ${{ env.CHROME_PROFILE_DIR }}
         run: |
-          xvfb-run python scripts/dispatcher.py
+          python scripts/dispatcher.py
 
       # ── 実行後のプロファイル変更をReleaseに反映 ──
       - name: Update Chrome profile in Release
         if: always()
+        shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHROME_PROFILE_KEY: ${{ secrets.CHROME_PROFILE_KEY }}
