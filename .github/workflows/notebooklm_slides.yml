@@ -1,8 +1,8 @@
 name: NotebookLM Slide Generator
 
 on:
-  schedule:
-    - cron: '0 * * * *'   # 1時間ごとに実行
+  # schedule:
+  #   - cron: '0 * * * *'   # 1時間ごとに実行
   workflow_dispatch:          # 手動実行も可能
 
 jobs:
